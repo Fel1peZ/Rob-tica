@@ -1,0 +1,109 @@
+// Robô seguidor de linha com ponte H L298D
+// Sensores IR: esquerda (A0), meio (A1), direita (A2)
+
+// === Pinos dos motores ===
+const int IN1 = 4;
+const int IN2 = 5;
+const int IN3 = 8;
+const int IN4 = 9;
+const int MA = 3;   // PWM motor direito
+const int MB = 10;  // PWM motor esquerdo
+
+// === Pinos dos sensores ===
+const int sensorEsqPin   = A0;
+const int sensorMeioPin  = A1;
+const int sensorDirPin   = A2;
+
+// === Configurações ===
+const int limiar = 500;     // Limiar de leitura para distinguir preto/branco
+const int velMotor = 150;   // Velocidade padrão dos motores (0-255)
+const unsigned long tempoDeCorrida = 10000; // Tempo total de corrida (ms)
+
+void setup() {
+  // Inicializa pinos dos motores
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+  pinMode(MA, OUTPUT);
+  pinMode(MB, OUTPUT);
+
+  // Inicializa comunicação serial para depuração
+  Serial.begin(9600);
+}
+
+void loop() {
+  unsigned long tempoInicio = millis();
+
+  while (millis() - tempoInicio < tempoDeCorrida) {
+    segueLinha();
+  }
+
+  // Parar o robô após o tempo
+  para_motores();
+  delay(10000); // Espera 10 segundos antes de reiniciar
+}
+
+// === Função para seguir a linha ===
+void segueLinha() {
+  int sensorEsq  = analogRead(sensorEsqPin);
+  int sensorMeio = analogRead(sensorMeioPin);
+  int sensorDir  = analogRead(sensorDirPin);
+
+  // Mostrar valores no Serial Monitor
+  Serial.print("E: "); Serial.print(sensorEsq);
+  Serial.print(" | M: "); Serial.print(sensorMeio);
+  Serial.print(" | D: "); Serial.println(sensorDir);
+
+  if (sensorMeio > limiar && sensorEsq < limiar && sensorDir < limiar) {
+    para_frente(velMotor); // Linha no meio → segue em frente
+  }
+  else if (sensorEsq > limiar) {
+    vira_esquerda(velMotor); // Linha à esquerda → vira esquerda
+  }
+  else if (sensorDir > limiar) {
+    vira_direita(velMotor); // Linha à direita → vira direita
+  }
+  else {
+    // Nenhum sensor detectou linha (fora da pista) → parar ou tentar corrigir
+    para_frente(velMotor); // Continua reto por segurança
+  }
+}
+
+// === Movimento: frente ===
+void para_frente(int vel) {
+  analogWrite(MA, vel);
+  analogWrite(MB, vel);
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+// === Movimento: vira esquerda ===
+void vira_esquerda(int vel) {
+  analogWrite(MA, vel);
+  analogWrite(MB, vel);
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+}
+
+// === Movimento: vira direita ===
+void vira_direita(int vel) {
+  analogWrite(MA, vel);
+  analogWrite(MB, vel);
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+// === Parar motores ===
+void para_motores() {
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, HIGH);
+}
