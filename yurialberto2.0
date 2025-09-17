@@ -1,0 +1,206 @@
+//Componentes: Ponte H L298D e sensor InfraRed
+//Programador: Evandro Cantu
+ 
+//Veriáveis para sensores de linha e velocidade
+int     sensorEsq, sensorLinha, sensorDir;
+int     velMin = 120, velMed = 180, velMax = 240; //Velocidades dos motores
+
+int buzzer = 13; // Atribui o valor 8 a variável buzzer, que representa o pino digital 8, onde o buzzer está conectado
+
+
+/* Leitura acima de 800 é preto
+ * Leituras menores são branco
+**/
+int     limiar = 800; //limiar do sensor de luz
+
+int     ultimaBranca = 0;// verificar o ultimo sensor que passou a linha branca
+
+//Variáveis para sensores de início e fim de pista
+int     sensorFim;
+int     contaFim = 8; //Conta marcas de início, fim e cruzamentos
+boolean flagFim = false; 
+long    tempoTotal; //Tempo total da volta
+long    tempoExtra = 2000; //Tempo extra para seguir linha
+
+
+//Definicoes pinos Arduino ligados a entrada da Ponte H
+int ENA = 3; //Motor direito
+int IN1 = 4;
+int IN2 = 5;
+
+int ENB = 10; //Motor esquerdo
+int IN3 = 8; //isso aqui faz alguma coisa
+int IN4 = 9;
+
+void setup(){
+
+  Serial.begin(9600);
+   
+  
+  //Define os pinos como saida  
+  pinMode(IN1, OUTPUT);  
+  pinMode(IN2, OUTPUT);  
+  pinMode(IN3, OUTPUT);  
+  pinMode(IN4, OUTPUT);
+  pinMode(ENA, OUTPUT);  
+  pinMode(ENB, OUTPUT); 
+
+  pinMode(buzzer, OUTPUT); //Definindo o pino buzzer como de saída.
+  
+}
+
+void para_frente(int vel) {
+  
+  //Configura velocidade dos motores
+  analogWrite(ENA, vel);   
+  analogWrite(ENB, vel);   
+  //Aciona o motores 
+  digitalWrite(IN1, LOW);  //A 
+  digitalWrite(IN2, HIGH); //A
+  digitalWrite(IN3, LOW);  //B
+  digitalWrite(IN4, HIGH); //B   
+  //Serial.println("indo para frente");
+}
+
+void vira_direita(int vel) {
+
+  //Serial.println("virou para a direita");
+  
+  
+  //MotorA_frente
+  analogWrite(ENA, vel);
+  digitalWrite(IN1, LOW);  //A 
+  digitalWrite(IN2, HIGH); //A  
+  
+  //MotorB_tras 
+  analogWrite(ENB, 87);   
+  digitalWrite(IN3, HIGH); //B
+  digitalWrite(IN4, LOW);  //B   
+}
+
+void vira_esquerda(int vel) {
+
+  //Serial.println("virou para a esquerda");
+  
+  //MotorA_tras
+  analogWrite(ENA, 87);
+  digitalWrite(IN1, HIGH);  //A 
+  digitalWrite(IN2, LOW); //A  
+  //MotorB_frente 
+  analogWrite(ENB, vel);   
+  digitalWrite(IN3, LOW); //B
+  digitalWrite(IN4, HIGH);  //B   
+}
+
+void para_motores() {
+  //MotorA_para
+  digitalWrite(IN1, HIGH);  //A 
+  digitalWrite(IN2, HIGH);  //A  
+  //MotorB_para 
+  digitalWrite(IN3, HIGH);  //B
+  digitalWrite(IN4, HIGH);  //B   
+}
+
+// void ultima_branca(){
+//   if(sensorEsq > limiar){
+//     ultimaBranca = 1;
+//   }
+//   if(sensorDir > limiar){
+//     ultimaBranca = 2;
+//   }
+//   if(sensorLinha > limiar){
+//     ultimaBranca = 3;
+//   }
+// }
+
+void segueLinha(){      
+
+  //le os sensores
+  sensorEsq   = analogRead(0);
+  sensorLinha = analogRead(1);
+  sensorDir   = analogRead(2); 
+  sensorFim   = analogRead(3); 
+
+
+  // Serial.println("Sensor esquerda: " + String(sensorEsq));
+  // Serial.println("Sensor direita: " + String(sensorDir));
+  // Serial.println("Sensor linha: " + String(sensorLinha));
+  // Serial.println();
+
+
+  //Se estiver na linha segue em frente 
+  if (sensorLinha < limiar || (sensorDir < limiar && sensorEsq < limiar)){
+    para_frente(velMax);
+    //bipa(500);  
+  }
+
+  //Se sensorEsq acha linha vire para a esquerda
+  if (sensorEsq < limiar && sensorLinha > limiar && sensorDir > limiar){
+    vira_esquerda(velMax);
+    //bipa(1000);
+  }
+ 
+  //Se sensorDir acha linha vire para a direita
+  if (sensorDir < limiar && sensorLinha > limiar && sensorEsq > limiar){
+    vira_direita(velMax);
+    //bipa(2000);
+  }
+ 
+
+
+  // if (sensorEsq > limiar && sensorLinha > limiar && sensorDir > limiar){
+  //   ultima_branca();
+  //   if(ultimaBranca == 1){
+  //     vira_direita(velMin);
+  //   }
+  //   else if(ultimaBranca == 2){
+  //     vira_esquerda(velMin);
+  //   }
+  //   else if(ultimaBranca == 3){
+  //     para_frente(velMin);
+  //   }
+  // }
+}
+ 
+void loop(){
+
+  
+  //Segue linha até encontrar marca de fim de pista
+  while(contaFim > 0){
+    //vira_direita(velMin);
+    segueLinha();
+
+    if (sensorFim > limiar){
+       flagFim = true; 
+    }
+       
+    if (sensorFim < limiar && flagFim){
+      bipa(500);
+      Serial.println(contaFim);
+      flagFim=false;
+       contaFim--;
+       
+    }
+  }
+
+ //Segue linha por mais 2 segundos antes de parar
+ tempoTotal = millis();
+ while((millis() - tempoTotal) < tempoExtra)
+   segueLinha();
+
+ //Pára motores
+ para_motores();
+
+ /**/
+
+ //Espera 10s
+ delay(10000);
+ }
+
+ void bipa(int freq) {
+  
+  tone(buzzer, freq, 500); // Toca um tom de 1000 Hz por 500 milissegundos
+  delay(30); // Pausa por tempo suficiente para o tom terminar
+  noTone(buzzer); // Para o som imediatamente
+
+ }
